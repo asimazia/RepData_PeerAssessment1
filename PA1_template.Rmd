@@ -1,25 +1,183 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Reproducible_Research_Assign1.md"
+author: "Asima Zia"
+date: "9/9/2019"
+output: html_document
 ---
 
+This is the markdown file for the "Reproducible Research" course on coursera for week two. The questions that we need to answer through writing the code to analyze the given data are:
 
-## Loading and preprocessing the data
+1. Code for loading and preprocessing the data.
+
+2. What is mean total number of steps taken per day?
+        
+3. What is the average daily activity pattern?
+        
+4. Imputing missing values
+        
+5. Are there differences in activity patterns between weekdays and weekends?
+
+1. Loading and preprocessing the data.
+```{r, echo=TRUE}
+
+# Loading and preprocessing the data
+
+activity <- read.csv(file = "activity.csv", header = TRUE, sep = ",")
+
+# To check what the data file's content is
+head(activity)
+
+# Overview of data
+
+summary(activity)
+
+str(activity)
+
+```
+
+2. What is mean total number of steps taken per day?
+
+```{r, echo=TRUE}
+
+# To calculate the total number of steps taken per day
+
+steps_per_day <- aggregate(steps ~ date, data = activity, FUN = sum, na.rm = TRUE)
+
+# To make a histogram of the total number of steps taken each day
+# Using basic plotting
+
+hist(steps_per_day$steps, xlab = "Steps per Day", main = "Total number of steps taken per day", col = "grey")
+
+#If you want to use ggplot2
+
+#qplot(steps_per_day$steps, xlab='Total steps per day', ylab='Frequency', bins = 30)
+
+# To calculate and report the mean and median of the total number of steps taken per day
+
+stepsbyday_mean <- mean(steps_per_day$steps)
+stepsbyday_median <- median(steps_per_day$steps)
+
+print(stepsbyday_mean)
+print(stepsbyday_median)
+
+```
+
+3. What is the average daily activity pattern?
+
+```{r, echo = TRUE}
+
+averagedailyactivity <- aggregate(steps ~ interval, data = activity, FUN = mean, na.rm = TRUE)
+
+# To make a time series plot (i.e. type="l")
+#color can be changes using the 'col = "black" option.
+
+plot(averagedailyactivity$interval, averagedailyactivity$steps, type = "l", xlab = "Interval", ylab = "Total steps per interval", main = "Number of steps per interval")
+
+# To calculate which 5 minute interval contains the maximum number of steps?
+
+maxsteps <- max(averagedailyactivity$steps) # if you want to round off you can use the round off function: maxsteps <- round(maxsteps, digit = 2)
+
+maxinterval <- averagedailyactivity$interval[which(averagedailyactivity$steps == maxsteps)]
+
+print(maxsteps)
+print(maxinterval)
+
+```
+
+4. Imputing missing values
+
+```{r, echo = TRUE}
+# To impute first we need to know how many missing values are there in data that we can calculate by
+
+totalna <- subset(activity, is.na(steps))
+
+sum(is.na(totalna$steps))
+
+# Calculate the mean steps per interval
+
+meanstepsperinterval <- tapply(activity$steps, activity$interval, mean, na.rm = TRUE)
+
+#subset the data in to two one with all the NAs and one without NAs
+
+activitywithnas <- activity[is.na(activity$steps),]
+activitywithoutnas <- activity[!is.na(activity$steps),] 
+
+activitywithnas$steps <- as.factor(activitywithnas$interval)
+levels(activitywithnas$steps) <- meanstepsperinterval
+
+#changing the data to integer 
+levels(activitywithnas$steps) <- round(as.numeric(levels(activitywithnas$steps)))
+activitywithnas$steps <- as.integer(as.vector(activitywithnas$steps))
+
+#merging the two data sets
+
+imputedactivity <- rbind(activitywithnas, activitywithoutnas)
+
+```
+
+Next Step: Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
 
 
+```{r, echo= TRUE}
 
-## What is mean total number of steps taken per day?
+#Plotting together the old and new data side by side
 
+par(mfrow = c(1,2))
 
+#Plot again the histogram with the old data = activity
 
-## What is the average daily activity pattern?
+activitystepsday <- aggregate(steps ~ date, data = activity, FUN = sum, na.rm = TRUE)
+hist(activitystepsday$steps, xlab = "Steps per day", main = "Total number of steps per day", col = "grey")
 
+#Plot second histogram, with new imputed data = imputedactivity
 
+imputedstepsperday <- aggregate(steps ~ date, data = imputedactivity, FUN = sum, na.rm = TRUE)
+hist(imputedstepsperday$steps, xlab = "Steps per day", main = "Total number of steps per day after imputation", col = "grey")
 
-## Imputing missing values
+# For comaprison of mean and median between old and new data calculate mean and median as before
 
+stepsbyday_mean <- mean(steps_per_day$steps)
+stepsbyday_median <- median(steps_per_day$steps)
+imputedstepsbyday_mean <- mean(imputedstepsperday$steps)
+imputedstepsbyday_median_steps <- median(imputedstepsperday$steps)
 
+# To view the mean and median of old and new data
+print(stepsbyday_mean)
+print(stepsbyday_median)
+print(imputedstepsbyday_mean)
+print(imputedstepsbyday_median_steps)
+```
+Result: Imputation of data didn't change the mean value but the median is reduced by 3 only that accounts for 0.027%. So imputation doesn't effect the overall data.
 
-## Are there differences in activity patterns between weekdays and weekends?
+5. Are there differences in activity patterns between weekdays and weekends?
+
+```{r, echo = TRUE}
+# Create a new factor variable in the dataset with two levels
+
+library(dplyr)
+
+imputedactivity <- mutate(imputedactivity, weektype = ifelse(weekdays(as.Date(imputedactivity$date)) == "Saturday" | weekdays(as.Date(imputedactivity$date)) == "Sunday", "weekend", "weekday"))
+
+#transform weektype variable into factor
+
+imputedactivity$weektype <- as.factor(imputedactivity$weektype)
+
+# Panel plot containing time series plot
+
+# Aggregate a table showing mean steps for all intervals, acrlss week days and weekend days
+
+stepsperinterval_dayType <- aggregate(steps ~ interval + weektype, data = imputedactivity, FUN = mean)
+#verify new dataframe 
+
+head(stepsperinterval_dayType)
+
+#plot with ggplot2
+
+library(ggplot2)
+finalresult <- ggplot(stepsperinterval_dayType, aes(x=interval, y= steps, color = weektype)) +
+  geom_line() +
+  facet_wrap(weektype ~., ncol = 1, nrow=2)
+print(finalresult)
+
+```
+
